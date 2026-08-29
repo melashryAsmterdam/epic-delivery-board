@@ -1,0 +1,886 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Live Board — Epic Delivery</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0E1720;
+    --paper:#EDF0F2;
+    --surface:#FFFFFF;
+    --rule:#D5DBE1;
+    --rule-soft:#E6EAEE;
+    --muted:#66757F;
+    --accent:#1F4EDB;
+    --ok:#0F7B4F;
+    --warn:#A76100;
+    --risk:#A81F1F;
+    --idle:#7C8A95;
+    --sans:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:var(--sans);
+    font-size:14px;
+    line-height:1.45;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1400px;margin:0 auto;padding:28px 24px 64px}
+
+  /* ---------- masthead ---------- */
+  .mast{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;flex-wrap:wrap;border-bottom:2px solid var(--ink);padding-bottom:14px}
+  .mast h1{
+    font-size:26px;font-weight:700;letter-spacing:-.02em;margin:0;
+  }
+  .mast .sub{font-family:var(--mono);font-size:11.5px;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;margin-top:4px}
+  .stamp{font-family:var(--mono);font-size:11.5px;color:var(--muted);text-align:right;line-height:1.7}
+  .stamp b{color:var(--ink);font-weight:500}
+
+  /* ---------- release lanes (signature) ---------- */
+  .lanes{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:1px;background:var(--rule);border:1px solid var(--rule);margin-top:22px}
+  .lane{background:var(--surface);padding:12px 14px 13px;cursor:pointer;transition:background .12s}
+  .lane:hover{background:#F7F9FA}
+  .lane[data-on="1"]{background:#0E1720;color:#fff}
+  .lane[data-on="1"] .lane-meta,.lane[data-on="1"] .lane-count small{color:#9BAAB6}
+  .lane-name{font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:.02em}
+  .lane-count{font-size:22px;font-weight:600;letter-spacing:-.02em;margin-top:2px}
+  .lane-count small{font-family:var(--mono);font-size:11px;font-weight:400;color:var(--muted);margin-left:4px;letter-spacing:.02em}
+  .bar{display:flex;height:5px;margin-top:9px;background:var(--rule-soft);overflow:hidden}
+  .bar span{display:block;height:100%}
+  .lane-meta{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:8px;letter-spacing:.01em}
+  .lane-meta .flag{color:var(--risk);font-weight:500}
+  .lane[data-on="1"] .lane-meta .flag{color:#FF8D85}
+
+  /* ---------- controls ---------- */
+  .controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:20px 0 0}
+  .chips{display:flex;gap:0;border:1px solid var(--rule);background:var(--surface)}
+  .chip{
+    font-family:var(--mono);font-size:12px;padding:7px 12px;border:0;background:transparent;color:var(--muted);
+    cursor:pointer;border-right:1px solid var(--rule-soft);letter-spacing:.03em;
+  }
+  .chip:last-child{border-right:0}
+  .chip[aria-pressed="true"]{background:var(--ink);color:#fff}
+  select,input[type=search]{
+    font-family:var(--sans);font-size:13px;padding:7px 10px;border:1px solid var(--rule);background:var(--surface);color:var(--ink);
+    border-radius:0;height:33px;
+  }
+  input[type=search]{min-width:210px}
+  select:focus-visible,input:focus-visible,.chip:focus-visible,.lane:focus-visible,th button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+  .spacer{flex:1}
+  .counts{display:flex;gap:14px;font-family:var(--mono);font-size:11.5px;color:var(--muted);letter-spacing:.02em}
+  .counts b{color:var(--ink);font-weight:600}
+  .counts .r{color:var(--risk)}
+
+  /* ---------- table ---------- */
+  .tablewrap{margin-top:14px;border:1px solid var(--rule);background:var(--surface);overflow-x:auto}
+  table{border-collapse:collapse;width:100%;min-width:1380px}
+  thead th{
+    position:sticky;top:0;background:var(--surface);z-index:2;
+    text-align:left;font-size:10.5px;font-family:var(--mono);letter-spacing:.09em;text-transform:uppercase;color:var(--muted);
+    font-weight:500;padding:0;border-bottom:1px solid var(--ink);white-space:nowrap;
+  }
+  thead th button{
+    all:unset;cursor:pointer;display:block;padding:10px 12px;width:100%;box-sizing:border-box;
+  }
+  thead th button:hover{color:var(--ink)}
+  thead th .arrow{opacity:.35;margin-left:4px}
+  tbody td{padding:9px 12px;border-bottom:1px solid var(--rule-soft);vertical-align:top}
+  tbody tr:hover{background:#F7F9FA}
+  .key{font-family:var(--mono);font-size:12.5px;font-weight:500;color:var(--accent);text-decoration:none;white-space:nowrap}
+  .key:hover{text-decoration:underline}
+  .summary{max-width:340px;font-weight:500}
+  .proj{font-family:var(--mono);font-size:11px;letter-spacing:.05em;padding:2px 6px;border:1px solid var(--rule);color:var(--muted)}
+  .status{font-size:12px;font-weight:500;white-space:nowrap;display:inline-flex;align-items:center;gap:6px}
+  .dot{width:7px;height:7px;flex:none;border-radius:50%;display:inline-block}
+  .person{font-size:13px;white-space:nowrap}
+  .person .none{color:var(--muted);font-style:italic}
+  .rel{font-family:var(--mono);font-size:12px;white-space:nowrap}
+  .eta{font-family:var(--mono);font-size:12px;white-space:nowrap}
+  .delta{font-family:var(--mono);font-size:11.5px;white-space:nowrap;font-weight:500}
+  .delta.ok{color:var(--ok)}
+  .delta.warn{color:var(--warn)}
+  .delta.risk{color:var(--risk)}
+  .delta.idle{color:var(--idle);font-weight:400}
+  .dor{font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;
+       padding:2px 6px;border:1px solid;white-space:nowrap;display:inline-block}
+  .dor.met{color:var(--ok);border-color:#9FD3BB;background:#F1F8F4}
+  .dor.notmet{color:var(--risk);border-color:#E8B4B4;background:#FBF2F2}
+  .dor.pending{color:var(--warn);border-color:#E8CFA0;background:#FDF7EC}
+  .dor.unknown{color:var(--muted);border-color:var(--rule);background:transparent}
+  .age{font-family:var(--mono);font-size:12px;color:var(--muted);text-align:right}
+  .age.stale{color:var(--risk)}
+  .empty{padding:40px 16px;text-align:center;color:var(--muted);font-size:13px}
+  .refresh{font-family:var(--mono);font-size:12px;letter-spacing:.03em;height:33px;padding:0 13px;
+           border:1px solid var(--rule);background:var(--surface);color:var(--ink);cursor:pointer}
+  .refresh:hover{background:#F7F9FA}
+  .refresh[disabled]{color:var(--muted);cursor:default}
+  .src{font-family:var(--mono);font-size:11px;letter-spacing:.02em}
+  .src.snap{color:var(--warn)}
+  .src.live{color:var(--ok)}
+  .loadnote{margin-top:18px;padding:11px 14px;border:1px solid var(--rule);background:var(--surface);
+            font-family:var(--mono);font-size:12px;color:var(--muted);line-height:1.6}
+  .loadnote.bad{border-color:#E8B4B4;background:#FBF2F2;color:var(--risk)}
+  .loadnote code{background:#EEF1F3;padding:1px 4px}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:1px;background:var(--rule);
+         border:1px solid var(--rule);margin:0 0 14px}
+  .card{background:var(--surface);padding:13px 15px 14px}
+  .card h4{margin:0;font-family:var(--mono);font-size:11px;letter-spacing:.05em;text-transform:uppercase;
+           color:var(--muted);font-weight:500}
+  .card .big{font-size:30px;font-weight:600;letter-spacing:-.02em;margin-top:3px;line-height:1.1}
+  .card .big small{font-family:var(--mono);font-size:11px;font-weight:400;color:var(--muted);margin-left:5px;letter-spacing:.02em}
+  .card .sub{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:7px;letter-spacing:.01em}
+  .card .sub b{color:var(--ink);font-weight:500}
+  .card.split{background:#F7F9FA}
+  .card.split .row{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11.5px;margin-top:5px}
+  .card.split .row span:last-child{color:var(--ink);font-weight:500}
+  .caveat{font-family:var(--mono);font-size:11px;color:var(--warn);margin-top:9px;letter-spacing:.01em}
+  .size{font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.04em;padding:2px 7px;
+        border:1px solid var(--rule);color:var(--muted)}
+  .num{font-family:var(--mono);font-size:13px;text-align:right;white-space:nowrap}
+  .num.zero{color:var(--muted)}
+  .num.hot{color:var(--risk);font-weight:600}
+  .dbar{display:flex;height:6px;width:100%;min-width:120px;background:var(--rule-soft);overflow:hidden}
+  .dbar i{display:block;height:100%}
+  .dbar .o{background:var(--risk)}
+  .dbar .j{background:var(--warn)}
+  .dbar .c{background:#B6C2CC}
+  .dlegend{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:.02em;margin-top:10px}
+  .dlegend i{display:inline-block;width:9px;height:9px;margin:0 4px 0 12px;vertical-align:middle}
+  .dlegend i:first-child{margin-left:0}
+
+  /* ---------- notes ---------- */
+  .notes{margin-top:26px;border-top:1px solid var(--rule);padding-top:16px;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:22px}
+  .notes h3{font-family:var(--mono);font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin:0 0 8px;font-weight:500}
+  .notes ul{margin:0;padding-left:16px;font-size:13px;color:#33424E}
+  .notes li{margin-bottom:5px}
+  @media (max-width:640px){.wrap{padding:18px 12px 48px}.mast h1{font-size:21px}}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <header class="mast">
+    <div>
+      <h1>Live Board</h1>
+      <div class="sub">Core · Travel · ECO — live from Jira</div>
+    </div>
+    <div class="stamp">
+      Data <b id="stampTime">—</b> · <span id="stampSrc" class="src">—</span><br>
+      Source <b>Jira</b> · <span id="stampCount">—</span>
+    </div>
+  </header>
+
+  <div id="loadNote" class="loadnote" hidden></div>
+  <section class="lanes" id="lanes" aria-label="Filter by release"></section>
+
+  <div class="controls">
+    <div class="chips" id="projChips" role="group" aria-label="Choose a view"></div>
+    <select id="projSel" aria-label="Filter by project"></select>
+    <select id="statusSel" aria-label="Filter by status"></select>
+    <select id="driSel" aria-label="Filter by DRI"></select>
+    <select id="dorSel" aria-label="Filter by refinement state"></select>
+    <select id="repSel" aria-label="Filter by reporter"></select>
+    <input type="search" id="q" placeholder="Search epic or summary">
+    <button class="refresh" id="refreshBtn" title="Pull the latest data from Jira">Refresh</button>
+    <div class="spacer"></div>
+    <div class="counts" id="counts"></div>
+  </div>
+
+  <div class="tablewrap" id="coreWrap">
+    <table>
+      <thead><tr id="head"></tr></thead>
+      <tbody id="body"></tbody>
+    </table>
+  </div>
+
+  <div id="defectWrap" hidden>
+    <section class="cards" id="dcards" aria-label="Defect rate by refinement state"></section>
+    <div class="tablewrap">
+      <table>
+        <thead><tr id="dhead"></tr></thead>
+        <tbody id="dbody"></tbody>
+      </table>
+    </div>
+    <div class="dlegend"><i class="o" style="background:var(--risk)"></i>open<i class="j" style="background:var(--warn)"></i>rejected<i class="c" style="background:#B6C2CC"></i>fixed</div>
+  </div>
+
+  <div class="notes">
+    <div>
+      <h3>Field mapping</h3>
+      <ul>
+        <li>DRI → <code>customfield_10042</code></li>
+        <li>Release → <code>customfield_10176</code></li>
+        <li>Tech Lead → fixed <b>Marwan Saleh</b> (no Tech Lead field in Jira)</li>
+        <li>Travel tab = Jira project <code>10749</code> (LTRF)</li>
+        <li>Project filter: Core = CBPC/CCS/CHOL/CR/CSD, Travel = LTRF, ECO = ESL/INCEN/FAN/RECO</li>
+        <li>Travel &amp; ECO: Backlog / New excluded, <b>Discovery shown</b> (as on Core); Done from 1 Jul</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Refinement rule</h3>
+      <ul>
+        <li>Not refined: DoR_NotMet, No_DOR, NotRefined, No_Refinement</li>
+        <li>Not refined: also any epic with no DoR-family label</li>
+        <li>Refined: DOR, Refined</li>
+        <li>To refine: To-Be-Refined, Refine_2, rc-refinement-gap</li>
+        <li><code>Refinement</code> excluded — it is a process tag</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Defects</h3>
+      <ul>
+        <li>Child issues of type <b>Bug</b> on each epic</li>
+        <li>Open = statusCategory is not Done</li>
+        <li>Excludes Discovery / Solution Design / Ready for Development <b>only when the epic has zero defects</b>; In Development always shown</li>
+        <li>Includes epics closed since 1 Jul 2026 (27), marked <b>closed</b></li>
+        <li>Reporter = Jira <code>reporter</code>; DRI = <code>customfield_10042</code></li>
+        <li>Size = <code>T Shirt Size</code> field</li>
+        <li>Rejected = status <b>Defect Rejected</b> — counts as Done in Jira, so it is excluded from Fixed</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Caveats</h3>
+      <ul>
+        <li>Excluded: Done (53), plus Backlog / New / Discovery (85)</li>
+        <li>Only 4 of these carry a due date</li>
+        <li><b>Days in progress</b> = time in the In Progress category, Discovery included — not time in the current status</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<script>
+const JIRA = 'https://webookcom.atlassian.net';
+
+/* No Tech Lead field exists in Jira — fixed value, set here */
+const TECH_LEAD = 'Marwan Saleh';
+
+/* Epic reporter — the 'reporter' field */
+const TODAY = (d=>new Date(d.getFullYear(),d.getMonth(),d.getDate()))(new Date());
+const STATUS = {
+  'New':                  {c:'#8D9BA6'},
+  'Backlog':              {c:'#7C8A95'},
+  'Discovery':            {c:'#8A63C4'},
+  'Solution Design':      {c:'#5B7FB9'},
+  'Ready for Development':{c:'#3A63C7'},
+  'In Development':       {c:'var(--accent)'},
+  'Ready for Testing':    {c:'#0E8A8A'},
+  'In Testing':           {c:'#12A0A0'},
+  'A/B Testing':          {c:'var(--warn)'},
+  'Ready to Deploy':      {c:'var(--ok)'},
+  'Blocked - Bug fixing': {c:'var(--risk)'},
+  'Done':                 {c:'#0F7B4F'}
+};
+
+/* Refinement / DoR state is derived from Jira labels.
+   Precedence: notMet > met > pending > unknown.
+   'Refinement' is deliberately NOT a signal — it sits on epics with DOR and with No_DOR. */
+const DOR_LABELS = {
+  notMet:  ['DoR_NotMet','No_DOR','NotRefined','No_Refinement'],
+  met:     ['DOR','Refined'],
+  pending: ['To-Be-Refined','Refine_2','rc-refinement-gap']
+};
+const DOR_META = {
+  met:     {t:'Refined',      cls:'met'},
+  notMet:  {t:'DoR not met',  cls:'notmet'},
+  pending: {t:'To refine',    cls:'pending'},
+  unknown: {t:'Not refined',  cls:'notmet'}
+};
+const dorState = labels => {
+  const L = (labels||[]).map(x=>x.toLowerCase());
+  const has = k => DOR_LABELS[k].some(l=>L.includes(l.toLowerCase()));
+  return has('notMet') ? 'notMet' : has('met') ? 'met' : has('pending') ? 'pending' : 'unknown';
+};
+
+/* [total defects, open, rejected]
+   open     = statusCategory != Done
+   rejected = status "Defect Rejected" (id 10036) — sits in the Done category
+   fixed    = total - open - rejected */
+/* T-shirt size — customfield_10578 */
+
+
+
+const days = d => d ? Math.round((new Date(d+'T00:00:00') - TODAY)/864e5) : null;
+const fmt = d => d ? new Date(d+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'2-digit'}) : '—';
+
+let view = 'core';
+let dsort = {col:'bugs', dir:-1};
+let f = {project:'ALL', domain:'ALL', reporter:'ALL', status:'ALL', dri:'ALL', dor:'ALL', release:null, q:''};
+let sort = {col:'eta', dir:1};
+
+const COLS = [
+  ['key','Epic'],['summary','Summary'],['status','Status'],
+  ['dri','DRI'],['lead','Tech Lead'],['dor','Refinement'],['release','Release'],['eta','ETA'],['delta','Δ ETA'],['age','Days in progress']
+];
+
+function filtered(){
+  return tableSource().filter(e => matches(e) && (!f.release||e.release===f.release)).sort((a,b)=>{
+    let x,y;
+    if(sort.col==='delta'||sort.col==='eta'){ x=days(a.eta)??9e3; y=days(b.eta)??9e3; }
+    else if(sort.col==='age'){ x=a.age; y=b.age; }
+    else if(sort.col==='lead'){ x=0; y=0; }
+    else if(sort.col==='dor'){ const o={notMet:0,unknown:1,pending:2,met:3}; x=o[a.dor]; y=o[b.dor]; }
+    else { x=a[sort.col]||'zz'; y=b[sort.col]||'zz'; }
+    return (x>y?1:x<y?-1:0)*sort.dir;
+  });
+}
+
+function renderLanes(){
+  const rels=[...new Set(tableSource().map(e=>e.release))]
+    .sort((a,b)=> a===''?1 : b===''?-1 : parseFloat(a)-parseFloat(b));
+  document.getElementById('lanes').innerHTML = rels.map(r=>{
+    const rows=tableSource().filter(e=>e.release===r);
+    const late=rows.filter(e=>days(e.eta)!==null&&days(e.eta)<0).length;
+    const noEta=rows.filter(e=>!e.eta).length;
+    const seg=Object.keys(STATUS).map(s=>{
+      const n=rows.filter(e=>e.status===s).length;
+      return n?`<span style="width:${n/rows.length*100}%;background:${SC(s)}"></span>`:'';
+    }).join('');
+    const unref=rows.filter(e=>e.dor==='notMet'||e.dor==='unknown').length;
+    const meta = late ? `<span class="flag">${late} past ETA</span>`
+               : unref ? `<span class="flag">${unref} not refined</span>`
+               : noEta ? `${noEta} no ETA` : 'on schedule';
+    return `<button class="lane" data-rel="${r}" data-on="${f.release===r?1:0}" aria-pressed="${f.release===r}">
+      <div class="lane-name">${r||'no release'}</div>
+      <div class="lane-count">${rows.length}<small>epics</small></div>
+      <div class="bar">${seg}</div>
+      <div class="lane-meta">${meta}</div>
+    </button>`;
+  }).join('');
+  document.querySelectorAll('.lane').forEach(b=>b.onclick=()=>{
+    f.release = f.release===b.dataset.rel ? null : b.dataset.rel; draw();
+  });
+}
+
+function renderControls(){
+  const TABS=[['core','Core'],['travel','Travel'],['eco','ECO'],['defects','Defects analysis']];
+  document.getElementById('projChips').innerHTML = TABS.map(([k,label])=>
+    `<button class="chip" data-v="${k}" aria-pressed="${view===k}">${label}</button>`).join('');
+  document.querySelectorAll('.chip').forEach(b=>b.onclick=()=>{view=b.dataset.v;draw();});
+
+  const sel=document.getElementById('statusSel');
+  if(!sel.options.length){
+    sel.innerHTML='<option value="ALL">All statuses</option>'+Object.keys(STATUS).map(s=>`<option>${s}</option>`).join('');
+    sel.onchange=()=>{f.status=sel.value;draw();};
+    const prj=document.getElementById('projSel');
+    prj.innerHTML='<option value="ALL">All projects</option><option>Core</option><option>Travel</option><option>ECO</option>';
+    prj.onchange=()=>{f.domain=prj.value;draw();};
+    const dri=document.getElementById('driSel');
+    dri.innerHTML='<option value="ALL">All DRIs</option>'+[...new Set([...EPICS,...TRAVEL_EPICS,...ECO_EPICS,...CLOSED_EPICS].map(e=>e.dri).filter(Boolean))].sort().map(d=>`<option>${d}</option>`).join('');
+    dri.onchange=()=>{f.dri=dri.value;draw();};
+    const dor=document.getElementById('dorSel');
+    dor.innerHTML='<option value="ALL">All refinement</option>'+
+      Object.entries(DOR_META).map(([k,v])=>`<option value="${k}">${k==='unknown'?'Not refined (no label)':k==='notMet'?'Not refined (labelled)':v.t}</option>`).join('');
+    dor.onchange=()=>{f.dor=dor.value;draw();};
+    const repl=document.getElementById('repSel');
+    repl.innerHTML='<option value="ALL">All reporters</option>'+
+      [...new Set(Object.values(REPORTER))].sort((a,b)=>a.toLowerCase()<b.toLowerCase()?-1:1)
+        .map(n=>`<option>${n}</option>`).join('');
+    repl.onchange=()=>{f.reporter=repl.value;draw();};
+    document.getElementById('q').oninput=e=>{f.q=e.target.value.toLowerCase();draw();};
+  }
+}
+
+function renderHead(){
+  document.getElementById('head').innerHTML = COLS.map(([k,label])=>
+    `<th${k==='age'?' style="text-align:right"':''}><button data-c="${k}">${label}${sort.col===k?`<span class="arrow">${sort.dir>0?'↑':'↓'}</span>`:''}</button></th>`).join('');
+  document.querySelectorAll('#head button').forEach(b=>b.onclick=()=>{
+    sort.dir = sort.col===b.dataset.c ? -sort.dir : 1; sort.col=b.dataset.c; draw();
+  });
+}
+
+/* Defect analysis excludes epics that have not reached build yet —
+   no code written means no defects, which would skew every average. */
+/* Epics closed since 1 Jul 2026 — defect analysis only, not shown on the Core tab.
+   [key, summary, project, status, DRI, size, labels, total, open, rejected] */
+
+/* Travel — Jira project 10749 (LTRF). Open epics only; 8 Done epics excluded.
+   [key, summary, project, status, DRI, lead, release, due, statusCatChanged, labels] */
+
+/* rows feeding the Core-style table, by tab */
+/* ECO — Ecosystem: Subscriptions & Loyalty, Incentives, Reco & Personalization, TrueFan.
+   Backlog / New excluded; Done shown from 1 Jul 2026.
+   [key, summary, project, status, DRI, lead, release, due, statusCatChanged, labels] */
+
+/* Travel and ECO tables hide only Backlog and New. Discovery IS shown, matching Core,
+   so future Discovery epics appear automatically on every tab. */
+const TABLE_EXCLUDE = ['Backlog','New'];
+const tableSource = () =>
+  view==='travel' ? TRAVEL_EPICS.filter(e=>!TABLE_EXCLUDE.includes(e.status)) :
+  view==='eco'    ? ECO_EPICS.filter(e=>!TABLE_EXCLUDE.includes(e.status)) : EPICS;
+
+const DEFECT_EXCLUDE = ['Discovery','Solution Design','Ready for Development'];
+/* Pre-build statuses are excluded only when the epic has no defects: a zero there
+   means "not tested yet" and would drag the averages down. An epic that HAS defects
+   has demonstrably reached QA, so it belongs in the analysis whatever its status. */
+const preBuild = e => DEFECT_EXCLUDE.includes(e.status) && !e.bugs;
+const defectScope = () => [
+  ...EPICS.filter(e=>!preBuild(e)),
+  ...TRAVEL_EPICS.filter(e=>!preBuild(e) && !TABLE_EXCLUDE.includes(e.status)),
+  ...ECO_EPICS.filter(e=>!preBuild(e) && !TABLE_EXCLUDE.includes(e.status)),
+  ...CLOSED_EPICS
+];
+/* filters shared by every tab */
+const matches = e =>
+  (f.domain==='ALL'||e.domain===f.domain) &&
+  (f.status==='ALL'||e.status===f.status) &&
+  (f.dri==='ALL'||e.dri===f.dri) &&
+  (f.dor==='ALL'||e.dor===f.dor) &&
+  (!f.q||(e.key+' '+e.summary).toLowerCase().includes(f.q));
+
+/* "two epics hold N% of all defects" — recomputed, never hardcoded */
+function concentration(){
+  const rows = defectScope().filter(matches).filter(e=>e.bugs)
+                 .sort((a,b)=>b.bugs-a.bugs);
+  const total = rows.reduce((n,e)=>n+e.bugs,0);
+  if(rows.length < 2 || !total) return `n=${defectScope().filter(matches).length}`;
+  const [a,b] = rows;
+  const pct = Math.round((a.bugs+b.bugs)/total*100);
+  return `n=${defectScope().filter(matches).length}; ${a.key} (${a.bugs}) + ${b.key} (${b.bugs}) = `+
+         `${a.bugs+b.bugs} of ${total} defects, ${pct}%`;
+}
+
+function drawCards(){
+  const med = a => { if(!a.length) return 0; const v=[...a].sort((x,y)=>x-y), m=v.length>>1;
+                     return v.length%2 ? v[m] : (v[m-1]+v[m])/2; };
+  const stat = states => {
+    const g = defectScope().filter(matches).filter(e=>f.reporter==='ALL'||REPORTER[e.key]===f.reporter).filter(e=>states.includes(e.dor));
+    const b = g.map(e=>e.bugs);
+    return {n:g.length, tot:b.reduce((x,y)=>x+y,0),
+            avg:g.length? b.reduce((x,y)=>x+y,0)/g.length : 0, med:med(b),
+            open:g.reduce((x,e)=>x+e.bugsOpen,0), rej:g.reduce((x,e)=>x+e.bugsRej,0)};
+  };
+  const A = stat(['met']);                        // refined
+  const B = stat(['notMet','unknown','pending']); // DoR not met / not refined / to refine
+  const one = (title,x,cls) => `<div class="card">
+      <h4>${title}</h4>
+      <div class="big${cls||''}">${x.avg.toFixed(1)}<small>defects / epic</small></div>
+      <div class="sub"><b>${x.n}</b> epics · <b>${x.tot}</b> defects · median <b>${x.med}</b></div>
+      <div class="sub"><b>${x.open}</b> open · <b>${x.rej}</b> rejected</div>
+    </div>`;
+  const bySize = ['S','M','L','XL'].map(sz=>{
+    const g=defectScope().filter(matches).filter(e=>f.reporter==='ALL'||REPORTER[e.key]===f.reporter).filter(e=>e.size===sz);
+    const a=g.length? g.reduce((x,e)=>x+e.bugs,0)/g.length : 0;
+    return `<div class="row"><span>${sz} (${g.length})</span><span>${g.length?a.toFixed(1):'—'}</span></div>`;
+  }).join('');
+  const perState = ['met','notMet','pending','unknown'].map(k=>{
+    const x=stat([k]);
+    return `<div class="row"><span>${DOR_META[k].t} (${x.n})</span><span>${x.avg.toFixed(1)}</span></div>`;
+  }).join('');
+  document.getElementById('dcards').innerHTML =
+    one('Refined', A) +
+    one('DoR not met / Not refined / To refine', B) +
+    `<div class="card split"><h4>Average by state</h4>${perState}
+       <div class="caveat">${concentration()}</div></div>`+
+    `<div class="card split"><h4>Average by size</h4>${bySize}
+       <div class="caveat">${defectScope().filter(matches).filter(e=>!e.size).length} epics unsized</div></div>`;
+}
+
+function drawDefects(){
+  drawCards();
+  const val = (e,k) => {
+    const fixed = e.bugs-e.bugsOpen-e.bugsRej;
+    switch(k){
+      case 'bugs':  return e.bugs;
+      case 'open':  return e.bugsOpen;
+      case 'rej':   return e.bugsRej;
+      case 'fixed': return fixed;
+      case 'rate':  return e.bugs ? e.bugsRej/e.bugs : -1;
+      case 'dor':   return {notMet:0,unknown:1,pending:2,met:3}[e.dor];
+      case 'dri':   return (e.dri||'zz').toLowerCase();
+      case 'rep':   return (REPORTER[e.key]||'zz').toLowerCase();
+      case 'size':  return {S:0,M:1,L:2,XL:3}[e.size] ?? 9;
+      default:      return (e[k]||'zz').toString().toLowerCase();
+    }
+  };
+  const byRep = e => f.reporter==='ALL' || REPORTER[e.key]===f.reporter;
+  const rows=defectScope().filter(matches).filter(byRep).sort((a,b)=>{
+    const x=val(a,dsort.col), y=val(b,dsort.col);
+    return (x>y?1:x<y?-1:0)*dsort.dir || b.bugs-a.bugs;
+  });
+  const max=Math.max(...rows.map(e=>e.bugs),1);
+  if(!rows.length){ document.getElementById('dhead').innerHTML='';
+    document.getElementById('dbody').innerHTML='<tr><td class="empty">'+(defectScope().length ? 'No epics match these filters. Clear one to widen the view.' : 'No data loaded from Jira yet.')+'</td></tr>';
+    document.getElementById('counts').innerHTML='<span><b>0</b> shown</span>'; return; }
+  const DC=[['key','Epic'],['summary','Summary'],['status','Status'],['rep','Reporter'],['dri','DRI'],['size','Size'],['dor','Refinement'],
+            ['bugs','Defects'],['open','Open'],['rej','Rejected'],['fixed','Fixed'],['rate','Rej %'],['dist','']];
+  document.getElementById('dhead').innerHTML = DC.map(([k,l])=>
+    `<th${['bugs','open','rej','fixed','rate'].includes(k)?' style="text-align:right"':''}>`+
+    (k==='dist' ? '<button></button>'
+     : `<button data-c="${k}">${l}${dsort.col===k?`<span class="arrow">${dsort.dir>0?'↑':'↓'}</span>`:''}</button>`)+
+    `</th>`).join('');
+  document.querySelectorAll('#dhead button[data-c]').forEach(b=>b.onclick=()=>{
+    if(dsort.col===b.dataset.c){ dsort.dir = -dsort.dir; }
+    else { dsort.col=b.dataset.c; dsort.dir = ['bugs','open','rej','fixed','rate'].includes(b.dataset.c) ? -1 : 1; }
+    drawDefects();
+  });
+  document.getElementById('dbody').innerHTML = rows.map(e=>{
+    const fixed=e.bugs-e.bugsOpen-e.bugsRej;
+    const rate=e.bugs?Math.round(e.bugsRej/e.bugs*100):0;
+    return `<tr>
+      <td><a class="key" href="${JIRA}/browse/${e.key}" target="_blank" rel="noopener">${e.key}</a></td>
+      <td class="summary">${e.summary}</td>
+      <td><span class="status"><i class="dot" style="background:${SC(e.status)}"></i>${e.status}${e.closed?' <small style="color:var(--muted);font-family:var(--mono);font-size:10px">closed</small>':''}</span></td>
+      <td class="person">${REPORTER[e.key]||'<span class="none">—</span>'}</td>
+      <td class="person">${e.dri||'<span class="none">unassigned</span>'}</td>
+      <td>${e.size?`<span class="size">${e.size}</span>`:'<span class="none">—</span>'}</td>
+      <td><span class="dor ${DOR_META[e.dor].cls}" title="${e.labels.join(', ')||'no labels'}">${DOR_META[e.dor].t}</span></td>
+      <td class="num${e.bugs?'':' zero'}">${e.bugs}</td>
+      <td class="num${e.bugsOpen?' hot':' zero'}">${e.bugsOpen}</td>
+      <td class="num${e.bugsRej?' hot':' zero'}">${e.bugsRej}</td>
+      <td class="num${fixed?'':' zero'}">${fixed}</td>
+      <td class="num${rate>=25?' hot':rate?'':' zero'}">${e.bugs?rate+'%':'—'}</td>
+      <td style="width:180px">${e.bugs?`<div class="dbar" style="width:${e.bugs/max*100}%">
+        <i class="o" style="width:${e.bugsOpen/e.bugs*100}%"></i>
+        <i class="j" style="width:${e.bugsRej/e.bugs*100}%"></i>
+        <i class="c" style="width:${fixed/e.bugs*100}%"></i></div>`:''}</td>
+    </tr>`;
+  }).join('');
+  const tot=rows.reduce((n,e)=>n+e.bugs,0), op=rows.reduce((n,e)=>n+e.bugsOpen,0);
+  const rj=rows.reduce((n,e)=>n+e.bugsRej,0);
+  const withDefects=rows.filter(e=>e.bugs).length;
+  document.getElementById('counts').innerHTML =
+    `<span><b>${tot}</b> defects</span><span class="r"><b>${op}</b> open</span>`+
+    `<span class="r"><b>${rj}</b> rejected</span>`+
+    `<span><b>${withDefects}</b> of ${rows.length} epics affected</span>`;
+}
+
+function draw(){
+  renderControls();
+  const table = view!=='defects';
+  document.getElementById('coreWrap').hidden = !table;
+  document.getElementById('defectWrap').hidden = table;
+  document.getElementById('lanes').hidden = !table;
+  ['projSel','statusSel','driSel','dorSel','q'].forEach(id=>document.getElementById(id).hidden=false);
+  document.getElementById('repSel').hidden = table;
+  if(!table){ drawDefects(); return; }
+  renderLanes(); renderHead();
+  const rows=filtered();
+  document.getElementById('body').innerHTML = rows.length ? rows.map(e=>{
+    const d=days(e.eta);
+    let cls='idle',txt='no ETA';
+    if(d!==null){ cls = d<0?'risk':d<=7?'warn':'ok'; txt = d<0?`${-d}d late`:d===0?'due today':`${d}d left`; }
+    return `<tr>
+      <td><a class="key" href="${JIRA}/browse/${e.key}" target="_blank" rel="noopener">${e.key}</a></td>
+      <td class="summary">${e.summary}</td>
+      <td><span class="status"><i class="dot" style="background:${SC(e.status)}"></i>${e.status}</span></td>
+      <td class="person">${e.dri||'<span class="none">unassigned</span>'}</td>
+      <td class="person">${TECH_LEAD}</td>
+      <td><span class="dor ${DOR_META[e.dor].cls}" title="${e.labels.join(', ')||'no labels'}">${DOR_META[e.dor].t}</span></td>
+      <td class="rel">${e.release||'—'}</td>
+      <td class="eta">${fmt(e.eta)}</td>
+      <td class="delta ${cls}">${txt}</td>
+      <td class="age${e.age>=21?' stale':''}" title="in progress since ${fmt(e.since)} — time in the In Progress category, Discovery included">${e.age}d</td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="10" class="empty">${tableSource().length ? 'No epics match these filters. Clear one to widen the view.' : 'No data loaded from Jira yet.'}</td></tr>`;
+
+  const late=rows.filter(e=>days(e.eta)!==null&&days(e.eta)<0).length;
+  const noEta=rows.filter(e=>!e.eta).length;
+  const blocked=rows.filter(e=>e.status.startsWith('Blocked')).length;
+  const unref=rows.filter(e=>e.dor==='notMet'||e.dor==='unknown').length;
+  document.getElementById('counts').innerHTML =
+    `<span><b>${rows.length}</b> shown</span><span class="r"><b>${late}</b> past ETA</span>`+
+    `<span class="r"><b>${blocked}</b> blocked</span><span class="r"><b>${unref}</b> not refined</span>`+
+    `<span><b>${noEta}</b> no ETA</span>`;
+}
+/* ============================================================================
+   LIVE DATA LAYER — queries Jira on load instead of using a baked-in snapshot.
+
+   REQUIREMENTS (see the banner in the page if a fetch fails):
+   1. This file must be served from an origin Jira accepts, and the browser must
+      already hold a Jira session. Two workable setups:
+        a) Serve it from inside Atlassian (Forge app / Confluence) — leave
+           CONFIG.base as '' so calls go to the same origin.
+        b) Serve it behind your own proxy that injects the auth header and
+           forwards /rest/api/3/* to Jira — again leave CONFIG.base as ''.
+   2. Opening this file straight from disk (file://) will NOT work: Jira's API
+      rejects cross-origin browser calls. That is a CORS restriction, not a bug
+      in this page.
+   NEVER put an API token in this file — anyone who opens it can read it.
+   ============================================================================ */
+const CONFIG = {
+  base: '',                                   // '' = same origin. Only change if proxied elsewhere.
+  searchPath: '/rest/api/3/search/jql',
+  core:   ['CBPC','CCS','CHOL','CR','CSD'],
+  travel: '10749',
+  eco:    ['Ecosystem: Subscriptions & Loyalty','Ecosystem: Incentives',
+           'Ecosystem: Reco & Personalization','Ecosystem: TrueFan'],
+  closedSince: '2026-07-01',                  // Done epics are shown from this date
+  fields: ['summary','status','labels','duedate','reporter','statuscategorychangedate',
+           'customfield_10042',               // DRI
+           'customfield_10176',               // Release
+           'customfield_10578']               // T-shirt size
+};
+
+
+/* ---------------------------------------------------------------------------
+   BAKED-IN SNAPSHOT — the board renders from this instantly, so it is never
+   blank. A live refresh (automatic on load, or the Refresh button) replaces it
+   when Jira is reachable. Regenerate this block with refresh-board.py.
+   --------------------------------------------------------------------------- */
+/* SNAPSHOT-START — refresh-board.py rewrites everything between these markers */
+const SNAPSHOT_DATE = '2026-08-28';
+let REPORTER = {"CBPC-350": "Awaab Sheikh", "CBPC-464": "gazali", "CBPC-484": "gazali", "CBPC-497": "Sagarsingh Pawar", "CBPC-693": "Awaab Sheikh", "CBPC-721": "nemer", "CBPC-775": "Nour", "CBPC-834": "Awaab Sheikh", "CBPC-863": "Awaab Sheikh", "CBPC-865": "Awaab Sheikh", "CBPC-884": "Awaab Sheikh", "CCS-28": "Awaab Sheikh", "CHOL-1": "Nosheen Bakhsh", "CHOL-15": "Laila Ahmed", "CHOL-19": "Laila Ahmed", "CHOL-48": "Nosheen Bakhsh", "CHOL-205": "Laila Ahmed", "CHOL-212": "Laila Ahmed", "CHOL-232": "Laila Ahmed", "CHOL-234": "Laila Ahmed", "CR-3": "gazali", "CR-37": "gazali", "CR-38": "gazali", "CR-77": "Nour", "CR-127": "gazali", "CR-131": "gazali", "CSD-4": "Nosheen Bakhsh", "CSD-39": "Nosheen Bakhsh", "CSD-40": "Nosheen Bakhsh", "CSD-50": "Nosheen Bakhsh", "CSD-66": "nemer", "CSD-69": "mona", "CSD-78": "Nosheen Bakhsh", "CSD-115": "Nosheen Bakhsh", "LTRF-338": "Osema Mohammed", "LTRF-355": "Marwan Saleh", "LTRF-365": "nemer", "LTRF-401": "Osema Mohammed", "ESL-42": "Laila Ahmed", "ESL-44": "Awaab Sheikh", "ESL-62": "Laila Ahmed", "ESL-65": "Laila Ahmed", "ESL-69": "Laila Ahmed", "ESL-72": "Reema Aldawood", "ESL-78": "Laila Ahmed", "ESL-83": "Reema Aldawood", "ESL-87": "Laila Ahmed", "INCEN-2": "Ghada Missaoui", "INCEN-12": "Ghada Missaoui", "INCEN-20": "Ghada Missaoui"};
+let SIZE = {"LTRF-365":"XL","ESL-72":"L","ESL-78":"M","ESL-83":"L","INCEN-12":"S", "CBPC-565": "M", "CBPC-693": "L", "CBPC-775": "", "CBPC-834": "L", "CBPC-854": "XL", "CBPC-855": "L", "CCS-32": "", "CHOL-232": "", "CR-38": "XL", "CR-82": "XL", "CR-131": "M", "CSD-40": "L", "CSD-84": "S"};
+let DEFECTS = {
+  'CBPC-565':[0,0,0],  'CBPC-693':[12,0,3], 'CBPC-775':[1,1,0],  'CBPC-834':[10,2,2],
+  'CBPC-854':[0,0,0],  'CBPC-855':[0,0,0],  'CCS-32':[1,1,0],    'CHOL-232':[5,5,0],
+  'CR-38':[39,2,18],   'CR-82':[0,0,0],     'CR-131':[7,7,0],    'CSD-40':[47,8,6],
+  'CSD-84':[0,0,0],
+  'LTRF-338':[0,0,0], 'LTRF-355':[0,0,0], 'LTRF-401':[4,2,0], 'LTRF-365':[23,2,2],
+  'ESL-44':[5,0,1], 'ESL-62':[1,1,0], 'ESL-65':[3,0,1], 'INCEN-2':[3,0,2],
+  'ESL-42':[0,0,0], 'ESL-69':[0,0,0], 'ESL-72':[0,0,0], 'ESL-78':[0,0,0],
+  'ESL-83':[0,0,0], 'ESL-87':[0,0,0], 'INCEN-12':[0,0,0], 'INCEN-20':[0,0,0]
+};
+let EPICS = [
+["CBPC-565", "New Product Detail Page (PDP 2.0)", "CBPC", "In Development", "Adel Naddaf", "Abdulraoof", "7.5", "", "2026-08-03", ["Missed-Migration-HY", "Refine_2", "Refined", "Refinement", "Req-Change"]],
+["CBPC-693", "Sending/Receiving Tickets - Tracking Enhancements", "CBPC", "Ready to Deploy", "Mehul Kuriya", "Aqsa Zia", "7.42", "2026-08-30", "2026-07-16", ["Demo_Done", "No_DOR", "SA_Approved", "pre-test-review"]],
+["CBPC-775", "[WhatsApp Reminder / Web] Historical user preference not reflected on reminder checkbox", "CBPC", "Ready for Testing", "Mehul Kuriya", "Nour", "7.5", "", "2026-08-11", ["Testing", "rc-refinement-gap"]],
+["CBPC-834", "Checkout Native Flow (P2) - GPay & Payment Methods", "CBPC", "A/B Testing", "Muhammad Joan", "Awaab Sheikh", "7.31", "", "2026-07-16", ["Demo", "pre-test-review"]],
+["CBPC-854", "Non-Seated Journey Revamp - Phase 1 (Booking Flow 2.0)", "CBPC", "Solution Design", "Adel Naddaf", "Awaab Sheikh", "", "", "2026-07-30", ["DOR", "Refinement", "Slicing"]],
+["CBPC-855", "BLVD World Landing Page (Sela)", "CBPC", "Ready for Development", "chokri", "Awaab Sheikh", "", "", "2026-08-23", ["Refined", "Refinement", "to_be_revised"]],
+["CCS-32", "Account Deletion - GDPR Requirement (P1)", "CCS", "In Development", "Essam Tariq", "Essam Tariq", "7.5", "", "2026-08-10", ["Req-Change", "To-Be-Refined"]],
+["CHOL-112", "[Homescreen 2.0] Slice 0 - Telemetry Fix", "CHOL", "Discovery", "", "", "", "", "2026-08-25", []],
+["CHOL-215", "Social Login V1.1 - Enhancements", "CHOL", "Discovery", "Essam Tariq", "Essam Tariq", "", "", "2026-08-12", ["DoR_NotMet", "To-Be-Refined", "to_be_revised"]],
+["CHOL-228", "Restrict Nafath verification module to the Saudi market", "CHOL", "Discovery", "", "", "", "", "2026-08-25", []],
+["CHOL-230", "[Homescreen 2.0] Slice 1.1 - Unified country selector", "CHOL", "Discovery", "", "", "", "", "2026-08-25", []],
+["CHOL-232", "Fix reporting in social log in", "CHOL", "Blocked - Bug fixing", "Essam Tariq", "Nour", "7.43", "", "2026-08-23", ["Demo", "Production_INC", "gate:failed"]],
+["CHOL-235", "[Homescreen 2.0] Slice 1 - Search Prominence", "CHOL", "Discovery", "", "", "", "", "2026-08-25", []],
+["CR-38", "Dynamic Multi-Currency Wallet - Phase I", "CR", "Ready to Deploy", "Muhammad Joan", "Dharanishri", "7.42", "2026-08-30", "2026-08-04", ["Demo", "DoR_NotMet", "New_Req", "New_SA", "Refinement", "SA_Approved", "XL_ToSplit"]],
+["CR-53", "Dynamic Multi-Currency Wallet - Phase II", "CR", "Discovery", "", "gazali", "", "", "2026-08-27", []],
+["CR-82", "Auto-Enable Resell", "CR", "In Development", "Mehul Kuriya", "Mehul Kuriya", "", "", "2026-06-30", ["DOR", "Refinement", "Slicing"]],
+["CR-131", "Ad Hoc VAT for Resell", "CR", "In Testing", "Mehul Kuriya", "Nour", "7.5", "", "2026-08-06", ["DOR", "Refinement"]],
+["CSD-40", "Conversational Search/AI", "CSD", "Ready to Deploy", "Ahmed Mohamad", "Ahmad Sher", "7.43", "2026-08-30", "2026-06-22", ["InReview", "To-Be-Refined", "pre-test-review"]],
+["CSD-81", "Champions Travel Integration - In-App Booking Journey", "CSD", "Discovery", "", "Nosheen Bakhsh", "", "", "2026-08-12", ["To-Be-Refined"]],
+["CSD-84", "Conversation search/AI - Phase 2", "CSD", "In Development", "Ahmed Mohamad", "Nosheen Bakhsh", "7.5", "", "2026-08-13", ["AI-Data-Team_SD", "SA_Required", "To-Be-Refined"]],
+["CSD-138", "[Web] Search UI Enhancements & Haptics", "CSD", "Discovery", "", "Adel Naddaf", "", "", "2026-08-27", []]
+].map(r=>({key:r[0],summary:r[1],project:r[2],status:r[3],dri:r[4],lead:r[5],release:r[6]||'',eta:r[7]||'',since:r[8],labels:r[9]||[],dor:dorState(r[9]),bugs:(DEFECTS[r[0]]||[0,0,0])[0],bugsOpen:(DEFECTS[r[0]]||[0,0,0])[1],bugsRej:(DEFECTS[r[0]]||[0,0,0])[2],size:SIZE[r[0]]||'',domain:'Core',age:Math.round((TODAY-new Date(r[8]+'T00:00:00'))/864e5)}));
+let CLOSED_EPICS = [
+["CBPC-350","Checkout Native Payment - Flow Integration","CBPC","Done","Adel Naddaf","L",["Bug_Fix","Demo"],28,0,3],
+["CBPC-464","Refund Guarantee Phase I Enhancements","CBPC","Done","Muhammad Joan","M",["Bug_Fix"],14,0,3],
+["CBPC-484","Whatsapp Reminder","CBPC","Done","Mehul Kuriya","L",["Demo","Demo_Done","QA_AI_Automation"],20,0,5],
+["CBPC-497","Bugfix: Waiting payment link success page should not break","CBPC","Done","Shaden","S",[],0,0,0],
+["CBPC-721","Leads Management and Business Signup","CBPC","Done","","",["No_QA"],0,0,0],
+["CBPC-863","WhatsApp Reminder - date & time format fix","CBPC","Done","","S",["Demo","NotRefined","pre-test-review"],0,0,0],
+["CBPC-865","(WhatsApp Reminder) New String Parameter to Show Date & Time","CBPC","Done","Mehul Kuriya","XS",[],0,0,0],
+["CBPC-884","Send Ticket as a Link not active on cloned events [FIX]","CBPC","Done","","XS",[],0,0,0],
+["CCS-28","Redirect users to Portuguese Help Centre Submit a request section","CCS","Done","Adel Naddaf","XS",[],0,0,0],
+["CHOL-1","Social Media Integration (App & Web)","CHOL","Done","","",[],2,0,0],
+["CHOL-15","Reduce signup friction with Social Login","CHOL","Done","Essam Tariq","L",["Demo_Done","Smoke_Testing"],18,0,7],
+["CHOL-19","On-demand Questionnaire","CHOL","Done","Muhammad Joan","XL",["Bug_Fix","Demo_Done","QA-ready","QA_AI_Automation","Un-blocked"],59,0,8],
+["CHOL-48","Update Dynamic Social Media Follow Prompts Across App","CHOL","Done","Mehthab Musambil","XS",["DOR","Refinement"],0,0,0],
+["CHOL-205","On demand data tracking","CHOL","Done","","S",["NotRefined"],0,0,0],
+["CHOL-212","Social sign in tracking","CHOL","Done","","S",[],0,0,0],
+["CHOL-234","Fix the error message of duplicate phone number","CHOL","Done","Essam Tariq","",["Production_INC","gate:failed"],0,0,0],
+["CR-3","Flexible Pricing for Resell","CR","Done","Essam Tariq","XL",["Bug_Fix","Demo_Done","New_Req","QA-ready"],40,0,8],
+["CR-37","IBAN Validation and English Name Verification at Payout Submission","CR","Done","Essam Tariq","M",["DOR","Demo_Done","QA_AI_Automation","SA_Approved"],2,0,0],
+["CR-77","[Resell / Resell Plus Primary] Resell listing removal not working properly","CR","Done","","XS",["QA-ready"],0,0,0],
+["CR-127","Update Resell UI Based on New Design Standard V3","CR","Done","","S",["Demo","No_AC","No_DOR","Refinement"],0,0,0],
+["CSD-4","Search: Fuzzy Matching","CSD","Done","Sahl Bakshi","S",["DOR","Demo_Done","Fix-Search"],1,0,0],
+["CSD-39","Search UX/UI Uplift","CSD","Done","","XL",["DOR","Demo","No_QA","Refinement"],0,0,0],
+["CSD-50","Amplitude: extend search_executed event with Quick Search properties","CSD","Done","","",[],0,0,0],
+["CSD-66","Search UX/UI Uplift (V2)","CSD","Done","Mehthab Musambil","M",["Refinement"],0,0,0],
+["CSD-69","Fix Sticky ADs Banner in Explore page","CSD","Done","","",[],0,0,0],
+["CSD-78","Search UX/UI Uplift (V3)","CSD","Done","Adel Naddaf","M",["To-Be-Refined"],0,0,0],
+["CSD-115","Recently Searched","CSD","Done","","",[],0,0,0]
+].map(r=>({key:r[0],summary:r[1],project:r[2],status:r[3],dri:r[4],size:r[5],
+           labels:r[6],dor:dorState(r[6]),bugs:r[7],bugsOpen:r[8],bugsRej:r[9],closed:true,domain:'Core'}));
+let TRAVEL_EPICS = [
+["LTRF-2","Restaurants Tably (Webook Pay)","LTRF","Backlog","","","","","2026-06-29",["removed-from-release-6.4"]],
+["LTRF-6","Cross Sell Hotels & Flights - During Checkout & Post Checkout","LTRF","Backlog","","","","","2026-06-29",[]],
+["LTRF-7","Fixing Foundation","LTRF","Backlog","","","","","2026-06-08",["removed-from-release-6.4"]],
+["LTRF-8","Apple Pay - Travel Product","LTRF","Backlog","","","6.31","","2026-07-27",[]],
+["LTRF-9","Wallet - Travel Product","LTRF","New","","","","","2026-02-02",[]],
+["LTRF-114","ESIM & Travel Insurance","LTRF","New","","","","","2026-02-19",[]],
+["LTRF-115","Car Transfer - Blacklane","LTRF","New","","","","","2026-02-19",[]],
+["LTRF-116","Car Rental","LTRF","New","","","","","2026-02-19",[]],
+["LTRF-118","New Payment Methods [BNPL]","LTRF","Backlog","","","","","2026-06-29",[]],
+["LTRF-128","Flight Notifications","LTRF","Backlog","","","","","2025-12-11",[]],
+["LTRF-131","Passport Scanning","LTRF","New","","","","","2026-02-19",[]],
+["LTRF-142","Ordering food at an event zone","LTRF","Backlog","","","","","2025-12-15",[]],
+["LTRF-143","Cross selling restaurants","LTRF","Backlog","","","","","2025-12-14",[]],
+["LTRF-144","Revamp Hotels/Flight","LTRF","New","","","","","2026-02-23",[]],
+["LTRF-161","Sinjab Up-lifting","LTRF","Backlog","","","","","2026-03-01",[]],
+["LTRF-166","Eid Deals","LTRF","New","","","","","2026-03-05",[]],
+["LTRF-196","EID & Summer Travel","LTRF","Backlog","","","","","2026-06-14",[]],
+["LTRF-230","eVISA and Packages","LTRF","Backlog","","","","2026-06-30","2026-06-11",[]],
+["LTRF-325","eVISA phase 2","LTRF","Backlog","","","","","2026-07-27",["Refinement"]],
+["LTRF-338","OCR Implementation","LTRF","Done","Ali Habeib","","7.21","","2026-08-28",["SA_Review","release-planned-7.21","removed-from-release-7.13"]],
+["LTRF-355","Amadeus Flights Integration (Direct GDS, in the Travel Microservice)","LTRF","In Development","muhammad.m","","","","2026-07-14",["Demo","Refinement"]],
+["LTRF-401","Evisa Flow 2.1","LTRF","In Development","Mohamed Saleh","","","","2026-08-09",["Refinement"]],
+["LTRF-365","eVISA 2.0 (New Flow)","LTRF","Done","Mohamed Saleh","","7.21","","2026-08-27",["release-planned-7.21"]],
+["LTRF-429","GDS 2.0 (New UI Flow)","LTRF","New","","","","","2026-08-23",[]]
+].map(r=>({key:r[0],summary:r[1],project:r[2],status:r[3],dri:r[4],lead:r[5],
+           release:r[6]||'',eta:r[7]||'',since:r[8],labels:r[9]||[],dor:dorState(r[9]),
+           domain:'Travel',size:SIZE[r[0]]||'',
+           bugs:(DEFECTS[r[0]]||[0,0,0])[0],bugsOpen:(DEFECTS[r[0]]||[0,0,0])[1],
+           bugsRej:(DEFECTS[r[0]]||[0,0,0])[2],
+           age:Math.round((TODAY-new Date(r[8]+'T00:00:00'))/864e5)}));
+let ECO_EPICS = [
+["ESL-42","WBK+ Subscription Awareness","ESL","A/B Testing","Shakeel Mazhar","","7.1","","2026-06-07",["DOR","Refinement"]],
+["ESL-44","Mokafaa API Checkout Integration","ESL","Ready to Deploy","M Mohsin Laeeque","","","2026-08-24","2026-08-01",["Blocked","DOR","Refinement"]],
+["ESL-62","WBK+ Mobile Plan Details & Comparison","ESL","A/B Testing","","","7.1","2026-08-03","2026-07-19",[]],
+["ESL-65","WBK+ In-Booking Subscription Upsell","ESL","Done","Abdulrahman Khaled","","7.3","2026-08-19","2026-08-20",["Demo"]],
+["ESL-69","Current subscription tracking","ESL","A/B Testing","Shakeel Mazhar","","7.1","","2026-07-19",[]],
+["ESL-72","Subscription Notifications","ESL","Solution Design","M Mohsin Laeeque","","","","2026-08-27",["Missing-UI","No_DOR","Refinement"]],
+["ESL-78","subscriptions recurring payments","ESL","In Development","M Mohsin Laeeque","","7.6","","2026-08-06",["Refined","Refinement","SA_Required","SA_Review"]],
+["ESL-83","UI/UX Enhancement","ESL","In Development","Abdulrahman Khaled","","7.5","","2026-08-13",["Refined","to_be_revised"]],
+["ESL-87","Fix for subscritpion new UI (compare screens)","ESL","Done","Shakeel Mazhar","","7.22","","2026-08-18",[]],
+["INCEN-2","Super Deals — Merchandising & Growth Engine","INCEN","Done","M Mohsin Laeeque","","6.31","","2026-06-23",[]],
+["INCEN-12","Update Saudi Rewards auto linking logic, PIN verification on redemption","INCEN","Done","M Mohsin Laeeque","","6.8","2026-07-14","2026-07-17",["DOR","Demo","Refinement"]],
+["INCEN-20","[Amplitude] Super Deals Tracking","INCEN","Done","Amal Alhaidari","","6.8","2026-07-14","2026-07-17",["Refinement","amplitude","analytics","super-deals"]]
+].map(r=>({key:r[0],summary:r[1],project:r[2],status:r[3],dri:r[4],lead:r[5],
+           release:r[6]||'',eta:r[7]||'',since:r[8],labels:r[9]||[],dor:dorState(r[9]),
+           domain:'ECO',size:SIZE[r[0]]||'',
+           bugs:(DEFECTS[r[0]]||[0,0,0])[0],bugsOpen:(DEFECTS[r[0]]||[0,0,0])[1],
+           bugsRej:(DEFECTS[r[0]]||[0,0,0])[2],
+           age:Math.round((TODAY-new Date(r[8]+'T00:00:00'))/864e5)}));
+
+/* SNAPSHOT-END */
+
+const SC = s => (STATUS[s] || {c:'#7C8A95'}).c;
+const quote = a => a.map(x=>`"${x}"`).join(',');
+
+async function jql(query, fields){
+  let out = [], token = null;
+  do {
+    const body = {jql:query, maxResults:100, fields};
+    if(token) body.nextPageToken = token;
+    const r = await fetch(CONFIG.base + CONFIG.searchPath, {
+      method:'POST', credentials:'include',
+      headers:{'Content-Type':'application/json', 'Accept':'application/json'},
+      body:JSON.stringify(body)
+    });
+    if(!r.ok) throw new Error(`Jira returned ${r.status} for: ${query}`);
+    const j = await r.json();
+    out = out.concat(j.issues || []);
+    token = j.nextPageToken;
+  } while(token);
+  return out;
+}
+
+/* Jira issue -> the row shape the board renders */
+function toRow(issue, domain){
+  const f = issue.fields, key = issue.key;
+  const status = f.status?.name || 'Unknown';
+  if(!STATUS[status]) STATUS[status] = {c:'#7C8A95'};   // keep filters/legend honest
+  if(f.reporter?.displayName) REPORTER[key] = f.reporter.displayName;
+  const size = f.customfield_10578?.value || '';
+  if(size) SIZE[key] = size;
+  const since = (f.statuscategorychangedate || '').slice(0,10);
+  return {
+    key, summary:(f.summary||'').trim(), project:key.split('-')[0], status,
+    dri: f.customfield_10042?.displayName || '',
+    lead:'', release: f.customfield_10176 != null ? String(f.customfield_10176) : '',
+    eta: f.duedate || '', since, labels: f.labels || [],
+    dor: dorState(f.labels || []), domain, size,
+    bugs:0, bugsOpen:0, bugsRej:0,
+    age: since ? Math.round((TODAY - new Date(since+'T00:00:00'))/864e5) : 0
+  };
+}
+
+/* One pass over every child Bug, tallied per parent epic.
+   open     = statusCategory is not Done
+   rejected = status "Defect Rejected" (which Jira files under Done) */
+async function loadDefects(rows){
+  const byKey = Object.fromEntries(rows.map(r=>[r.key,r]));
+  const keys = Object.keys(byKey);
+  for(let i=0; i<keys.length; i+=40){
+    const chunk = keys.slice(i, i+40);
+    const bugs = await jql(
+      `issuetype = Bug AND parent in (${chunk.join(',')})`, ['status','parent']);
+    for(const b of bugs){
+      const parent = byKey[b.fields.parent?.key];
+      if(!parent) continue;
+      const st = b.fields.status?.name;
+      parent.bugs++;
+      if(st === 'Defect Rejected') parent.bugsRej++;
+      else if(b.fields.status?.statusCategory?.key !== 'done') parent.bugsOpen++;
+    }
+  }
+  rows.forEach(r => DEFECTS[r.key] = [r.bugs, r.bugsOpen, r.bugsRej]);
+}
+
+function note(msg, bad){
+  const el = document.getElementById('loadNote');
+  el.hidden = false;
+  el.className = 'loadnote' + (bad ? ' bad' : '');
+  el.innerHTML = msg;
+}
+
+function stamp(text, cls){
+  document.getElementById('stampTime').textContent = text;
+  const el = document.getElementById('stampSrc');
+  el.className = 'src ' + cls;
+  el.textContent = cls === 'live' ? 'live from Jira' : 'snapshot';
+}
+
+function countAll(){
+  return EPICS.length + CLOSED_EPICS.length + TRAVEL_EPICS.length + ECO_EPICS.length;
+}
+
+function showSnapshot(){
+  const d = new Date(SNAPSHOT_DATE + 'T00:00:00');
+  const age = Math.round((TODAY - d) / 864e5);
+  stamp(d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})
+        + (age > 0 ? ` (${age}d old)` : ''), 'snap');
+  document.getElementById('stampCount').textContent = countAll() + ' epics';
+}
+
+/* Pulls everything fresh. Returns true on success; leaves the snapshot intact on failure. */
+async function refresh(quiet){
+  const btn = document.getElementById('refreshBtn');
+  btn.disabled = true; btn.textContent = 'Refreshing…';
+  const since = CONFIG.closedSince;
+  const openOrRecent = `(statusCategory != Done OR resolved >= "${since}")`;
+  try {
+    if(!quiet) note('Loading from Jira…');
+    const [core, closed, travel, eco] = await Promise.all([
+      jql(`project in (${CONFIG.core.join(',')}) AND issuetype = Epic AND statusCategory != Done`, CONFIG.fields),
+      jql(`project in (${CONFIG.core.join(',')}) AND issuetype = Epic AND statusCategory = Done AND resolved >= "${since}"`, CONFIG.fields),
+      jql(`project = ${CONFIG.travel} AND issuetype = Epic AND ${openOrRecent}`, CONFIG.fields),
+      jql(`project in (${quote(CONFIG.eco)}) AND issuetype = Epic AND ${openOrRecent}`, CONFIG.fields)
+    ]);
+    REPORTER = {}; SIZE = {}; DEFECTS = {};
+    EPICS        = core.map(i=>toRow(i,'Core'));
+    CLOSED_EPICS = closed.map(i=>{ const r = toRow(i,'Core'); r.closed = true; return r; });
+    TRAVEL_EPICS = travel.map(i=>toRow(i,'Travel'));
+    ECO_EPICS    = eco.map(i=>toRow(i,'ECO'));
+
+    if(!quiet) note('Counting defects…');
+    await loadDefects([...EPICS, ...CLOSED_EPICS, ...TRAVEL_EPICS, ...ECO_EPICS]);
+
+    stamp(new Date().toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',
+          hour:'2-digit',minute:'2-digit'}), 'live');
+    document.getElementById('stampCount').textContent = countAll() + ' epics';
+    document.getElementById('loadNote').hidden = true;
+    draw();
+    return true;
+  } catch (err) {
+    const where = location.protocol === 'file:'
+      ? `This file was opened straight from disk (<code>file://</code>), and Jira refuses browser
+         calls from there. That is a CORS rule, not a fault in the page.`
+      : `Jira is not accepting calls from <code>${location.origin}</code>.`;
+    note(`<b>Live refresh unavailable — showing the snapshot from ${SNAPSHOT_DATE}.</b><br>${where}<br><br>`+
+         `A live pull needs this page served from inside Atlassian (Forge) or behind your own proxy
+          forwarding <code>/rest/api/3/*</code>, with a Jira session in the same browser.
+          Until then the snapshot below is complete and usable — regenerate it daily with
+          <code>refresh-board.py</code>.<br><br>`+
+         `<span style="color:var(--muted)">Technical detail: ${err.message}</span>`, true);
+    return false;
+  } finally {
+    btn.disabled = false; btn.textContent = 'Refresh';
+  }
+}
+
+document.getElementById('refreshBtn').onclick = () => refresh(false);
+
+/* Snapshot paints immediately; then we quietly try for something newer. */
+showSnapshot();
+draw();
+refresh(true);
+</script>
