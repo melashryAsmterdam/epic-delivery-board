@@ -1,1 +1,53 @@
 
+name: Refresh delivery board
+
+# Runs itself daily, and can be triggered by hand from the Actions tab.
+on:
+  schedule:
+    - cron: '0 3 * * *'        # 06:00 Riyadh (GitHub cron is UTC)
+  workflow_dispatch:            # the "Run workflow" button
+
+permissions:
+  contents: write               # needed to commit the refreshed snapshot back
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Pull latest data from Jira
+        env:
+          JIRA_BASE:  ${{ secrets.JIRA_BASE }}
+          JIRA_EMAIL: ${{ secrets.JIRA_EMAIL }}
+          JIRA_TOKEN: ${{ secrets.JIRA_TOKEN }}
+        run: python3 refresh-board.py live-board.html
+
+      - name: Check the result still parses
+        run: |
+          sed -n '/<script>/,$p' live-board.html | sed '1d;$d' > /tmp/check.js
+          node --check /tmp/check.js
+          echo "board JS is valid"
+
+      - name: Commit if anything changed
+        run: |
+          git config user.name  "board-bot"
+          git config user.email "board-bot@users.noreply.github.com"
+          if git diff --quiet live-board.html; then
+            echo "no change today"
+          else
+            git add live-board.html
+            git commit -m "Refresh board data $(date -u +%Y-%m-%d)"
+            git push
+          fi
+
+      # Optional: publish to GitHub Pages so the team opens a URL, not a file.
+      # Enable Pages (Settings > Pages > GitHub Actions) before switching this on.
+      # - uses: actions/upload-pages-artifact@v3
+      #   with:
+      #     path: .
+      # - uses: actions/deploy-pages@v4
